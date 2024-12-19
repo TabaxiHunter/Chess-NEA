@@ -1,5 +1,7 @@
 import tkinter as tk
 
+from pieces import *
+
 def clamp(n, min, max):
     """Keep numbers within a valid range"""
     if n < min: 
@@ -7,7 +9,9 @@ def clamp(n, min, max):
     elif n > max: 
         return max
     else: 
-        return n 
+        return n
+    
+FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR" # FEN notation for the starting position of chess
 
 class Board(tk.Canvas):
     def __init__(self, square_size, board_size):
@@ -21,9 +25,10 @@ class Board(tk.Canvas):
 
         self.pieces = {}
         self.selected_piece = None
+        self.grid = ["." for _ in range(64)]
 
         self.draw_board()
-        self.setup_pieces()
+        self.setup_pieces(FEN)
 
         # Bind events so player can move pieces
         self.bind("<Button-1>", self.on_click)
@@ -46,7 +51,29 @@ class Board(tk.Canvas):
 
                 self.create_rectangle(x1, y1, x2, y2, fill=colour, width=0)
 
-    def setup_pieces(self):
+    def setup_pieces(self, fen):
+        print(fen)
+
+        row = 0
+        column = 0
+
+        print(self.grid)
+
+        for character in fen:
+            if character == "/":
+                row += 1
+                column = 0
+            elif character.isdigit():
+                row += int(character)
+            else:
+                colour = "WHITE" if character.isupper() else "BLACK"
+                piece_type = character.lower()
+
+                self.grid[row+column] = (colour, piece_type)
+                column += 1
+
+        print(self.grid)
+
         """Set up the pieces in their starting positions"""
         initial_positions = {
             "r1": (0, 0), "n1": (1, 0), "b1": (2, 0), "q1": (3, 0), "k1": (4, 0), "b2": (5, 0), "n2": (6, 0), "r2": (7, 0),
@@ -55,24 +82,39 @@ class Board(tk.Canvas):
             "R1": (0, 7), "N1": (1, 7), "B1": (2, 7), "Q1": (3, 7), "K1": (4, 7), "B2": (5, 7), "N2": (6, 7), "R2": (7, 7),
         }
 
-        piece_symbols = {
-            "r": "♜", "n": "♞", "b": "♝", "q": "♛", "k": "♚", "p": "♟",
-            "R": "♖", "N": "♘", "B": "♗", "Q": "♕", "K": "♔", "P": "♙"
+        piece_images = {
+            "r": tk.PhotoImage(file="ChessPieces/bR.png"),
+            "n": tk.PhotoImage(file="ChessPieces/bN.png"),
+            "b": tk.PhotoImage(file="ChessPieces/bB.png"),
+            "q": tk.PhotoImage(file="ChessPieces/bQ.png"),
+            "k": tk.PhotoImage(file="ChessPieces/bK.png"),
+            "p": tk.PhotoImage(file="ChessPieces/bP.png"),
+            "R": tk.PhotoImage(file="ChessPieces/wR.png"),
+            "N": tk.PhotoImage(file="ChessPieces/wN.png"),
+            "B": tk.PhotoImage(file="ChessPieces/wB.png"),
+            "Q": tk.PhotoImage(file="ChessPieces/wQ.png"),
+            "K": tk.PhotoImage(file="ChessPieces/wK.png"),
+            "P": tk.PhotoImage(file="ChessPieces/wP.png")
         }
+
+        root.images = [] # Store a reference to each image to prevent garbage collection
 
         for name, position in initial_positions.items():
             x, y = position
-            piece_symbol = piece_symbols.get(name[0])
+            piece_symbol = piece_images.get(name[0])
+
             self.add_piece(name, x, y, piece_symbol)
 
-    def add_piece(self, name, x, y, symbol):
-        """Add a chess piece to the board represented by text"""
-        # TODO: Represent pieces with images
-        piece_id = self.create_text(
+    def add_piece(self, name, x, y, image):
+        """Add a chess piece to the board represented by an image"""
+        root.images.append(image)
+
+        piece_id = self.create_image(
             x * self.square_size + self.square_size // 2,
             y * self.square_size + self.square_size // 2,
-            text=symbol, font=("Helvetica", 36)
+            image=image
         )
+
         self.pieces[piece_id] = (name, x, y)
 
     def on_click(self, event):
@@ -117,7 +159,7 @@ class Board(tk.Canvas):
 if __name__ == "__main__":
     root = tk.Tk()
     root.title("Chess")
-    root.iconbitmap("icon.ico") # TODO: Replace this icon
+    #root.iconbitmap("icon.ico") # TODO: Replace this icon
     root.geometry("854x480")
     root.minsize(854, 480)
 

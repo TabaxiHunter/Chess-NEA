@@ -12,12 +12,11 @@ class Piece:
         """Check if a given position is occupied by any piece"""
         for piece in pieces:
             if position == piece.coords:
-                return True
-        return False
+                return piece
 
 class Pawn(Piece):
     def get_moves(self, pieces):
-        """Generate legal moves for a pawn given its position"""
+        """Generate legal moves for a pawn"""
         x, y = self.coords
         moves = []
         direction = -1 if self.colour == "WHITE" else 1 # White moves up, black moves down
@@ -31,7 +30,36 @@ class Pawn(Piece):
         if not self.has_moved and 0 <= y + 2 * direction < 8:
             if not self.position_taken((x, y + direction), pieces) and not self.position_taken((x, y + 2 * direction), pieces):
                 moves.append((x, y + 2 * direction))
-        
+
+        # Capture diagonally left
+        if 0 <= x - 1 < 8 and 0 <= y + direction < 8:
+            target_pos = (x - 1, y + direction)
+            blocking_piece = self.position_taken(target_pos, pieces)
+
+            if blocking_piece and blocking_piece.colour != self.colour:
+                moves.append(target_pos)
+
+        # Capture diagonally right
+        if 0 <= x + 1 < 8 and 0 <= y + direction < 8:
+            target_pos = (x + 1, y + direction)
+            blocking_piece = self.position_taken(target_pos, pieces)
+            
+            if blocking_piece and blocking_piece.colour != self.colour:
+                moves.append(target_pos)
+
+        # En Passant Capture
+        """for piece in pieces:
+            if isinstance(piece, Pawn) and piece.colour != self.colour:
+                # The enemy pawn must have just moved two steps
+                adjacent = piece.coords[1] - self.coords[1] == 0
+                diagonal = abs(piece.coords[0] - self.coords[0]) == 1
+                    
+                if adjacent and diagonal and not piece.has_moved:
+                    moves.append((piece.coords[0], piece.coords[1] + direction))"""
+
+        # Promotion
+        # For the sake of simplicity, all promotions will be to queens
+
         return moves
     
     def get_value(self):
@@ -39,7 +67,7 @@ class Pawn(Piece):
 
 class Knight(Piece):
     def get_moves(self, pieces):
-        """Generate legal moves for a knight given its position"""
+        """Generate legal moves for a knight given"""
         x, y = self.coords
         moves = []
         
@@ -47,17 +75,13 @@ class Knight(Piece):
         
         for dx, dy in directions:
             nx, ny = x + dx, y + dy
-            if 0 <= nx < 8 and 0 <= ny < 8: # Ensure within board limits
-                # Check if the position is occupied
-                occupied_piece = None
-                for piece in pieces:
-                    if piece.coords == (nx, ny):
-                        occupied_piece = piece
-                        break
-                
-                # The knight can move if the square is empty or occupied by an opponent
-                if occupied_piece is None or occupied_piece.colour != self.colour:
-                    moves.append((nx, ny))
+            if 0 <= nx < 8 and 0 <= ny < 8:
+                blocking_piece = self.position_taken((nx, ny), pieces)
+                if blocking_piece:
+                    if blocking_piece.colour != self.colour:
+                        moves.append((nx, ny))
+                    continue
+                moves.append((nx, ny))
         
         return moves
     
@@ -66,7 +90,7 @@ class Knight(Piece):
 
 class Bishop(Piece):
     def get_moves(self, pieces):
-        """Generate legal moves for a bishop given its position"""
+        """Generate legal moves for a bishop"""
         x, y = self.coords
         moves = []
         directions = [(-1, -1), (1, -1), (-1, 1), (1, 1)]
@@ -74,13 +98,13 @@ class Bishop(Piece):
         for dx, dy in directions:
             nx, ny = x + dx, y + dy
             while 0 <= nx < 8 and 0 <= ny < 8:
-                # If the position is occupied by an opponent's piece, add the move and stop
-                if self.position_taken((nx, ny), pieces):
-                    if (nx, ny) != (x, y):  # If occupied by a piece, stop at the first piece (enemy or friendly)
-                        break
-                moves.append((nx, ny))  # Add the valid move
-                if (nx, ny) != (x, y) and self.position_taken((nx, ny), pieces):
-                    break  # Stop if the position is occupied
+                blocking_piece = self.position_taken((nx, ny), pieces)
+                if blocking_piece:
+                    if blocking_piece.colour != self.colour:
+                        moves.append((nx, ny))
+                    break
+                moves.append((nx, ny))
+
                 nx += dx
                 ny += dy
     
@@ -91,6 +115,7 @@ class Bishop(Piece):
 
 class Rook(Piece):
     def get_moves(self, pieces):
+        """Generate legal moves for a rook"""
         x, y = self.coords
         moves = []
     
@@ -99,12 +124,13 @@ class Rook(Piece):
         for dx, dy in directions:
             nx, ny = x + dx, y + dy
             while 0 <= nx < 8 and 0 <= ny < 8:
-                if self.position_taken((nx, ny), pieces): # Check if the position is occupied
-                    if (nx, ny) != (x, y): # If occupied, stop at the first piece (enemy or friendly)
-                        break
-                moves.append((nx, ny))  # Add the valid move
-                if (nx, ny) != (x, y) and self.position_taken((nx, ny), pieces):
-                    break # Stop at the first occupied position
+                blocking_piece = self.position_taken((nx, ny), pieces)
+                if blocking_piece:
+                    if blocking_piece.colour != self.colour:
+                        moves.append((nx, ny))
+                    break
+                moves.append((nx, ny))
+
                 nx += dx
                 ny += dy
     
@@ -115,10 +141,13 @@ class Rook(Piece):
 
 class Queen(Piece):
     def get_moves(self, pieces):
-        rook = Rook(self.coords[0], self.coords[1], self.colour, self.image) # Create a rook at the queen's position
-        bishop = Bishop(self.coords[0], self.coords[1], self.colour, self.image) # Create a bishop at the queen's position
+        """Generate legal moves for the queen"""
+
+        # The Queen's moves are just a combination of the Bishop and Rook
+        rook = Rook(self.coords[0], self.coords[1], self.colour, self.image)
+        bishop = Bishop(self.coords[0], self.coords[1], self.colour, self.image)
         
-        # Combine the moves from both rook and bishop
+        # To reuse code we can get the moves of both pieces and combine them
         return rook.get_moves(pieces) + bishop.get_moves(pieces)
     
     def get_value(self):
@@ -126,6 +155,7 @@ class Queen(Piece):
 
 class King(Piece):
     def get_moves(self, pieces):
+        """Generate legal moves for the king"""
         x, y = self.coords
         moves = []
         
@@ -134,16 +164,14 @@ class King(Piece):
         for dx, dy in directions:
             nx, ny = x + dx, y + dy
             if 0 <= nx < 8 and 0 <= ny < 8:
-                # Check if the position is occupied
-                occupied_piece = None
-                for piece in pieces:
-                    if piece.coords == (nx, ny):
-                        occupied_piece = piece
-                        break
-
-                # The king can move if the square is empty or occupied by an opponent
-                if occupied_piece is None or occupied_piece.colour != self.colour:
-                    moves.append((nx, ny))
+                blocking_piece = self.position_taken((nx, ny), pieces)
+                if blocking_piece:
+                    if blocking_piece.colour != self.colour:
+                        moves.append((nx, ny))
+                    continue
+                moves.append((nx, ny))
+        
+        # Castling
         
         return moves
     

@@ -2,6 +2,7 @@ import tkinter as tk
 
 from pieces import *
 from utils import clamp
+from engine import Engine
 
 STARTING_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR" # FEN notation for the starting position of chess
 
@@ -17,6 +18,8 @@ class Board(tk.Canvas):
 
         self.pieces = []
         self.selected_piece = None
+        self.player_colour = "WHITE"
+        self.current_turn = "WHITE" # White starts
 
         self.draw_board()
         self.setup_pieces(STARTING_FEN)
@@ -122,7 +125,7 @@ class Board(tk.Canvas):
         y = event.y // self.square_size
 
         for piece in self.pieces:
-            if piece.coords == (x, y):
+            if piece.coords == (x, y) and piece.colour == self.player_colour and self.current_turn == self.player_colour:
                 self.selected_piece = piece
                 self.offset_x = event.x - piece.coords[0] * self.square_size
                 self.offset_y = event.y - piece.coords[1] * self.square_size
@@ -143,7 +146,7 @@ class Board(tk.Canvas):
 
                 self.create_rectangle(x1, y1, x2, y2, fill=colour, width=0, tag="highlight")
 
-            self.tag_raise("piece") # So pieces are visible above the highlight
+            self.tag_raise("piece") # So pieces are visible above the highlight        
             
     def on_drag(self, event):
         """Drag the selected piece"""
@@ -166,12 +169,36 @@ class Board(tk.Canvas):
                     new_y * self.square_size + self.square_size // 2
                 )
 
+                for piece in self.pieces:
+                    if piece.coords == (new_x, new_y):
+                        self.delete(piece.piece_image)
+                        self.pieces.remove(piece)
+
                 # Update the piece's logical position
                 self.selected_piece.coords = (new_x, new_y)
                 self.selected_piece.has_moved = True
-
-                print(self.selected_piece.coords)
                 self.selected_piece = None
+                self.current_turn = "BLACK"
+
+                # Let the AI make a move
+                moved_piece, moved_coords = Engine.generate_move(self, "BLACK", self.pieces)
+                new_x, new_y = moved_coords
+
+                for piece in self.pieces:
+                    if piece.coords == (new_x, new_y):
+                        self.delete(piece.piece_image)
+                        self.pieces.remove(piece)
+
+                moved_piece.coords = moved_coords
+                moved_piece.has_moved = True
+
+                self.coords(
+                    moved_piece.piece_image, 
+                    new_x * self.square_size + self.square_size // 2,
+                    new_y * self.square_size + self.square_size // 2
+                )
+
+                self.current_turn = "WHITE"
             else:
                 self.coords(
                     self.selected_piece.piece_image, 

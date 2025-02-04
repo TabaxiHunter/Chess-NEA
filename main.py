@@ -1,152 +1,126 @@
 import tkinter as tk
+import threading
+
+from board import Board
+from engine import Engine
 
 from pieces import *
 from utils import clamp
-from engine import Engine
 
-STARTING_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR" # FEN notation for the starting position of chess
+class Chess:
+    def __init__(self, root, square_size, board_size):
+        self.SQUARE_SIZE = square_size
+        self.BOARD_SIZE = board_size
 
-class Board(tk.Canvas):
-    def __init__(self, square_size, board_size):
-        self.square_size = square_size
-        self.board_size = board_size
+        self.root = root
+        self.root.geometry("854x480")
+        self.root.minsize(854, 480)
 
-        self.canvas_width = self.square_size * self.board_size
-        self.canvas_height = self.square_size * self.board_size
-
-        tk.Canvas.__init__(self, width=self.canvas_width, height=self.canvas_height) # Inherit from Canvas
-
-        self.pieces = []
+        self.images = []
         self.selected_piece = None
-        self.player_colour = "WHITE"
-        self.current_turn = "WHITE" # White starts
+        self.current_turn = 1 # White starts
 
-        self.draw_board()
-        self.setup_pieces(STARTING_FEN)
+        self.board = Board()
+        self.engine = Engine(5)
 
-        # Bind events so player can move pieces
-        self.bind("<Button-1>", self.on_click)
-        self.bind("<B1-Motion>", self.on_drag)
-        self.bind("<ButtonRelease-1>", self.on_drop)
+        self.setup_ui()
+
+    def setup_ui(self):
+        self.canvas_width = self.SQUARE_SIZE * self.BOARD_SIZE
+        self.canvas_height = self.SQUARE_SIZE * self.BOARD_SIZE
+
+        self.canvas = tk.Canvas(self.root, width=self.canvas_width, height=self.canvas_height)
+        self.canvas.pack(anchor="nw")
+
+        self.undo_button = tk.Button(self.root, text="Undo Move", command=self.undo_move)
+        self.undo_button.pack()
+
+        self.update_graphics()
 
     def draw_board(self):
         """Draw the chessboard with alternating colours"""
-        for row in range(self.board_size):
-            for column in range(self.board_size):
+        for row in range(self.BOARD_SIZE):
+            for column in range(self.BOARD_SIZE):
                 if (row + column) % 2 == 0:
                     colour = "#F0D9B5"
                 else:
                     colour = "#B58863"
 
-                x1 = column * self.square_size
-                y1 = row * self.square_size
-                x2 = (column + 1) * self.square_size
-                y2 = (row + 1) * self.square_size
+                x1 = column * self.SQUARE_SIZE
+                y1 = row * self.SQUARE_SIZE
+                x2 = (column + 1) * self.SQUARE_SIZE
+                y2 = (row + 1) * self.SQUARE_SIZE
 
-                self.create_rectangle(x1, y1, x2, y2, fill=colour, width=0)
-
-    def fen_to_coords(self, fen):
-        """Convert a FEN string to a dictionary of piece coordinates"""
-        ranks = fen.split()[0].split("/") # Extract the board representation
-        piece_positions = {}
-    
-        for rank_idx, rank in enumerate(ranks):
-            file_idx = 0
-            for char in rank:
-                if char.isdigit():
-                    file_idx += int(char) # Empty squares
-                else:
-                    position = (file_idx, rank_idx) # Convert to (x, y) coordinates with (0,0) at the top left
-                    if char in piece_positions:
-                        piece_positions[char].append(position)
-                    else:
-                        piece_positions[char] = [position]
-                    file_idx += 1
+                self.canvas.create_rectangle(x1, y1, x2, y2, fill=colour, width=0)
         
-        return piece_positions
+        # Bind events so player can move pieces
+        self.canvas.bind("<Button-1>", self.on_click)
+        self.canvas.bind("<B1-Motion>", self.on_drag)
+        self.canvas.bind("<ButtonRelease-1>", self.on_drop)
 
-    def setup_pieces(self, fen):
-        piece_images = {
+    def draw_pieces(self):
+        white_pieces = {
+            "r": tk.PhotoImage(file="ChessPieces/wR.png"),
+            "n": tk.PhotoImage(file="ChessPieces/wN.png"),
+            "b": tk.PhotoImage(file="ChessPieces/wB.png"),
+            "q": tk.PhotoImage(file="ChessPieces/wQ.png"),
+            "k": tk.PhotoImage(file="ChessPieces/wK.png"),
+            "p": tk.PhotoImage(file="ChessPieces/wP.png")
+        }
+
+        black_pieces = {
             "r": tk.PhotoImage(file="ChessPieces/bR.png"),
             "n": tk.PhotoImage(file="ChessPieces/bN.png"),
             "b": tk.PhotoImage(file="ChessPieces/bB.png"),
             "q": tk.PhotoImage(file="ChessPieces/bQ.png"),
             "k": tk.PhotoImage(file="ChessPieces/bK.png"),
-            "p": tk.PhotoImage(file="ChessPieces/bP.png"),
-            "R": tk.PhotoImage(file="ChessPieces/wR.png"),
-            "N": tk.PhotoImage(file="ChessPieces/wN.png"),
-            "B": tk.PhotoImage(file="ChessPieces/wB.png"),
-            "Q": tk.PhotoImage(file="ChessPieces/wQ.png"),
-            "K": tk.PhotoImage(file="ChessPieces/wK.png"),
-            "P": tk.PhotoImage(file="ChessPieces/wP.png")
+            "p": tk.PhotoImage(file="ChessPieces/bP.png")
         }
 
-        piece_types = {
-            "r": Rook,
-            "n": Knight,
-            "b": Bishop,
-            "q": Queen,
-            "k": King,
-            "p": Pawn
-        }
+        for piece in self.board.pieces:
+            if piece.colour == 1:
+                image = white_pieces[piece.piece_type]
+            else:
+                image = black_pieces[piece.piece_type]
 
-        piece_coords = self.fen_to_coords(fen)
+            piece.piece_image = self.canvas.create_image(
+                piece.coords[0] * self.SQUARE_SIZE + self.SQUARE_SIZE // 2,
+                piece.coords[1] * self.SQUARE_SIZE + self.SQUARE_SIZE // 2,
+                image=image,
+                tag="piece"
+            )
 
-        for piece_char in piece_coords:
-            for position in piece_coords[piece_char]:
-                file, rank = position
-
-                colour = "WHITE" if piece_char.isupper() else "BLACK"
-                image = piece_images[piece_char]
-
-                piece_type = piece_char.lower()
-                piece_class = piece_types[piece_type]
-
-                piece = piece_class(file, rank, colour, image)
-
-                self.add_piece(piece)
-
-    def add_piece(self, piece):
-        """Add a chess piece to the board represented by an image"""
-        x, y  = piece.coords
-
-        piece.piece_image = self.create_image(
-            x * self.square_size + self.square_size // 2,
-            y * self.square_size + self.square_size // 2,
-            image=piece.image,
-            tag="piece"
-        )
-
-        self.pieces.append(piece)
+            # Keep a reference to the image to prevent garbage collection
+            self.images.append(image)
 
     def on_click(self, event):
         """Handle clicking on a piece to start dragging"""
-        x = event.x // self.square_size
-        y = event.y // self.square_size
+        x = event.x // self.SQUARE_SIZE
+        y = event.y // self.SQUARE_SIZE
 
-        for piece in self.pieces:
-            if piece.coords == (x, y) and piece.colour == self.player_colour and self.current_turn == self.player_colour:
+        for piece in self.board.pieces:
+            if piece.coords == (x, y):
                 self.selected_piece = piece
-                self.offset_x = event.x - piece.coords[0] * self.square_size
-                self.offset_y = event.y - piece.coords[1] * self.square_size
+                self.offset_x = event.x - piece.coords[0] * self.SQUARE_SIZE
+                self.offset_y = event.y - piece.coords[1] * self.SQUARE_SIZE
                 break
 
         if self.selected_piece:
             # Highlight all the possible moves a player can make
-            for (x, y) in self.selected_piece.get_moves(self.pieces):
-                x1 = x * self.square_size
-                y1 = y * self.square_size
-                x2 = (x + 1) * self.square_size
-                y2 = (y + 1) * self.square_size
+            for (x, y) in self.selected_piece.get_moves(self.board.pieces):
+                x1 = x * self.SQUARE_SIZE
+                y1 = y * self.SQUARE_SIZE
+                x2 = (x + 1) * self.SQUARE_SIZE
+                y2 = (y + 1) * self.SQUARE_SIZE
 
                 if (x + y) % 2 == 0:
                     colour = "#de3d4b"
                 else:
                     colour = "#b0272f"
 
-                self.create_rectangle(x1, y1, x2, y2, fill=colour, width=0, tag="highlight")
+                self.canvas.create_rectangle(x1, y1, x2, y2, fill=colour, width=0, tag="highlight")
 
-            self.tag_raise("piece") # So pieces are visible above the highlight        
+            self.canvas.tag_raise("piece") # So pieces are visible above the highlight
             
     def on_drag(self, event):
         """Drag the selected piece"""
@@ -154,69 +128,49 @@ class Board(tk.Canvas):
         y = clamp(event.y, 0, self.canvas_height)
 
         if self.selected_piece:
-            self.coords(self.selected_piece.piece_image, x, y)
+            self.canvas.coords(self.selected_piece.piece_image, x, y)
 
     def on_drop(self, event):
         """Drop the piece on a square"""
         if self.selected_piece:
-            new_x = event.x // self.square_size
-            new_y = event.y // self.square_size
+            new_x = event.x // self.SQUARE_SIZE
+            new_y = event.y // self.SQUARE_SIZE
+            new_coords = (new_x, new_y)
 
-            if (new_x, new_y) in self.selected_piece.get_moves(self.pieces):
-                self.coords(
-                    self.selected_piece.piece_image, 
-                    new_x * self.square_size + self.square_size // 2,
-                    new_y * self.square_size + self.square_size // 2
-                )
+            if new_coords in self.selected_piece.get_moves(self.board.pieces):
+                # The player has selected a valid move, so play it
+                self.board.make_move(self.selected_piece.coords, new_coords)
 
-                for piece in self.pieces:
-                    if piece.coords == (new_x, new_y):
-                        self.delete(piece.piece_image)
-                        self.pieces.remove(piece)
+                # AI turn
+                thread = threading.Thread(target=self.ai_turn, daemon=True)
+                thread.start()
+            
+        # Otherwise, the attempted move is invalid so don't update position
+        self.selected_piece = None
+        #self.update_graphics()
 
-                # Update the piece's logical position
-                self.selected_piece.coords = (new_x, new_y)
-                self.selected_piece.has_moved = True
-                self.selected_piece = None
-                self.current_turn = "BLACK"
+    def ai_turn(self):
+        best_move = self.engine.generate_move(self.board, -1)
+        _, start, end = best_move
 
-                # Let the AI make a move
-                moved_piece, moved_coords = Engine.generate_move(self, "BLACK", self.pieces)
-                new_x, new_y = moved_coords
+        self.board.make_move(start, end)
+        self.root.after(0, self.update_graphics)
 
-                for piece in self.pieces:
-                    if piece.coords == (new_x, new_y):
-                        self.delete(piece.piece_image)
-                        self.pieces.remove(piece)
+    def update_graphics(self):
+        """Updates the graphics based on the board state"""
+        self.canvas.delete("piece") # Remove all the old piece images
+        self.canvas.delete("highlight")
 
-                moved_piece.coords = moved_coords
-                moved_piece.has_moved = True
+        self.draw_board()
+        self.draw_pieces()
 
-                self.coords(
-                    moved_piece.piece_image, 
-                    new_x * self.square_size + self.square_size // 2,
-                    new_y * self.square_size + self.square_size // 2
-                )
-
-                self.current_turn = "WHITE"
-            else:
-                self.coords(
-                    self.selected_piece.piece_image, 
-                    self.selected_piece.coords[0] * self.square_size + self.square_size // 2,
-                    self.selected_piece.coords[1] * self.square_size + self.square_size // 2
-                )
-                self.selected_piece = None
-
-            self.delete("highlight")
+    def undo_move(self):
+        """Undoes the last move"""
+        self.board.unmake_move()
+        self.update_graphics()
 
 if __name__ == "__main__":
     root = tk.Tk()
-    root.title("Chess")
-    
-    root.geometry("854x480")
-    root.minsize(854, 480)
-
-    board = Board(square_size=60, board_size=8)
-    board.pack(anchor="nw")
+    app = Chess(root, square_size=60, board_size=8)
 
     root.mainloop()

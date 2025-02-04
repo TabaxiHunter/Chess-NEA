@@ -1,25 +1,32 @@
 class Piece:
-    def __init__(self, x, y, colour, image):
+    def __init__(self, x, y, colour, piece_type):
         self.coords = (x, y)
-        self.colour = colour
+        self.colour = colour # 1 for white, -1 for black
 
-        self.image = image # Store a reference to each image to prevent garbage collection
-        self.piece_image = None # Store the tkinter canvas image
+        self.piece_type = piece_type # Single character e.g. "p" for Pawn
+        self.piece_image = None
+        self.starting_position = self.coords
 
-        self.has_moved = False
+    def move(self, new_x, new_y):
+        """Move the piece to a new location"""
+        self.coords = (new_x, new_y)
 
     def position_taken(self, position, pieces):
         """Check if a given position is occupied by any piece"""
         for piece in pieces:
             if position == piece.coords:
                 return piece
+            
+    def has_moved(self):
+        """Returns True if the piece has moved at least once"""
+        return self.starting_position != self.coords
 
 class Pawn(Piece):
     def get_moves(self, pieces):
         """Generate legal moves for a pawn"""
         x, y = self.coords
         moves = []
-        direction = -1 if self.colour == "WHITE" else 1 # White moves up, black moves down
+        direction = -self.colour # White moves up, black moves down
         
         # Single step forward
         if 0 <= y + direction < 8:
@@ -27,7 +34,7 @@ class Pawn(Piece):
                 moves.append((x, y + direction))
 
         # Double step forward
-        if not self.has_moved and 0 <= y + 2 * direction < 8:
+        if not self.has_moved() and 0 <= y + 2 * direction < 8:
             if not self.position_taken((x, y + direction), pieces) and not self.position_taken((x, y + 2 * direction), pieces):
                 moves.append((x, y + 2 * direction))
 
@@ -46,19 +53,6 @@ class Pawn(Piece):
             
             if blocking_piece and blocking_piece.colour != self.colour:
                 moves.append(target_pos)
-
-        # En Passant Capture
-        """for piece in pieces:
-            if isinstance(piece, Pawn) and piece.colour != self.colour:
-                # The enemy pawn must have just moved two steps
-                adjacent = piece.coords[1] - self.coords[1] == 0
-                diagonal = abs(piece.coords[0] - self.coords[0]) == 1
-                    
-                if adjacent and diagonal and not piece.has_moved:
-                    moves.append((piece.coords[0], piece.coords[1] + direction))"""
-
-        # Promotion
-        # For the sake of simplicity, all promotions will be to queens
 
         return moves
     
@@ -144,8 +138,8 @@ class Queen(Piece):
         """Generate legal moves for the queen"""
 
         # The Queen's moves are just a combination of the Bishop and Rook
-        rook = Rook(self.coords[0], self.coords[1], self.colour, self.image)
-        bishop = Bishop(self.coords[0], self.coords[1], self.colour, self.image)
+        rook = Rook(self.coords[0], self.coords[1], self.colour, self.piece_type)
+        bishop = Bishop(self.coords[0], self.coords[1], self.colour, self.piece_type)
         
         # To reuse code we can get the moves of both pieces and combine them
         return rook.get_moves(pieces) + bishop.get_moves(pieces)

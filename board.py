@@ -64,7 +64,7 @@ class Board:
     def make_move(self, start, end):
         """Updates the board with the move and stores it in history"""
         piece = self.get_piece_at(start[0], start[1])
-        is_legal = end in piece.get_moves(self.pieces)
+        is_legal = end in piece.get_moves(self)
 
         if piece and is_legal:
             captured_piece = self.get_piece_at(end[0], end[1])
@@ -75,9 +75,41 @@ class Board:
             self.history.append((start, end, piece, captured_piece, None))
             piece.move(end[0], end[1])
 
-        # Attempt to promote the piece if it's a pawn
-        if isinstance(piece, Pawn):
-            self.promote(piece, start, end, captured_piece)
+            # Attempt to promote the piece if it's a pawn
+            if isinstance(piece, Pawn):
+                self.promote(piece, start, end, captured_piece)
+
+            # Handle castling
+            if isinstance(piece, King) and abs(start[0] - end[0]) == 2:
+                self.perform_castling(piece, start, end)
+
+    def perform_castling(self, king, start, end):
+        """Moves the rook accordingly when castling."""
+        y = start[1]
+
+        if end[0] == 6:  # Kingside
+            rook = self.get_piece_at(7, y)
+            if rook:
+                rook.move(5, y)
+
+        elif end[0] == 2:  # Queenside
+            rook = self.get_piece_at(0, y)
+            if rook:
+                rook.move(3, y)
+
+    def undo_castling(self, king, start, end):
+        """Moves the rook back to its original position when undoing castling."""
+        y = start[1]
+
+        if end[0] == 6:  # Kingside castling
+            rook = self.get_piece_at(5, y)
+            if rook:
+                rook.move(7, y)  # Move rook back to original position
+
+        elif end[0] == 2:  # Queenside castling
+            rook = self.get_piece_at(3, y)
+            if rook:
+                rook.move(0, y)  # Move rook back to original position
 
     def unmake_move(self):
         """Reverts the last move"""
@@ -93,9 +125,16 @@ class Board:
                 self.pieces.remove(old_pawn)
             self.pieces.append(piece)
 
-        piece.move(start[0], start[1]) # Revert the piece position
+        # Undo castling
+        if isinstance(piece, King) and abs(start[0] - end[0]) == 2:
+            self.undo_castling(piece, start, end)
+
+        # Revert the piece position
+        piece.move(start[0], start[1])
 
         # Restore captured piece
         if captured_piece:
             self.pieces.append(captured_piece)
             captured_piece.move(end[0], end[1])
+
+        

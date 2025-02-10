@@ -1,5 +1,3 @@
-import copy
-
 class Engine:
     def __init__(self, depth):
         self.MAX_DEPTH = depth
@@ -57,7 +55,7 @@ class Engine:
         all_moves = []
         for piece in board.pieces:
             if piece.colour == colour:
-                for move in piece.get_moves(board.pieces):
+                for move in piece.get_moves(board):
                     all_moves.append((piece, piece.coords, move))
 
         return all_moves

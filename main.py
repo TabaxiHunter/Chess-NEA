@@ -21,7 +21,7 @@ class Chess:
         self.current_turn = 1 # White starts
 
         self.board = Board()
-        self.engine = Engine(5)
+        self.engine = Engine(depth=3)
 
         self.setup_ui()
 
@@ -99,7 +99,7 @@ class Chess:
         y = event.y // self.SQUARE_SIZE
 
         for piece in self.board.pieces:
-            if piece.coords == (x, y):
+            if piece.coords == (x, y) and self.current_turn == 1:
                 self.selected_piece = piece
                 self.offset_x = event.x - piece.coords[0] * self.SQUARE_SIZE
                 self.offset_y = event.y - piece.coords[1] * self.SQUARE_SIZE
@@ -140,21 +140,30 @@ class Chess:
             if new_coords in self.selected_piece.get_moves(self.board.pieces):
                 # The player has selected a valid move, so play it
                 self.board.make_move(self.selected_piece.coords, new_coords)
+                self.update_graphics()
+
+                # Deselect the piece and switch turns
+                self.selected_piece = None
+                self.current_turn = -1 # Black
 
                 # AI turn
                 thread = threading.Thread(target=self.ai_turn, daemon=True)
                 thread.start()
-            
-        # Otherwise, the attempted move is invalid so don't update position
-        self.selected_piece = None
-        #self.update_graphics()
+            else:
+                # Otherwise, the attempted move is invalid so don't update position
+                self.selected_piece = None
+                self.update_graphics()
+
+    def ai_done(self):
+        self.current_turn = 1 # Switch back to player's turn
+        self.update_graphics()
 
     def ai_turn(self):
         best_move = self.engine.generate_move(self.board, -1)
         _, start, end = best_move
 
         self.board.make_move(start, end)
-        self.root.after(0, self.update_graphics)
+        self.root.after(0, self.ai_done)
 
     def update_graphics(self):
         """Updates the graphics based on the board state"""

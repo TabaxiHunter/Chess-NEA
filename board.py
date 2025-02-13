@@ -1,4 +1,4 @@
-from pieces import *
+from pieces import Pawn, Knight, Bishop, Rook, Queen, King
 from utils import fen_to_coords
 
 class Board:

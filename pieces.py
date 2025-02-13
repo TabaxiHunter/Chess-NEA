@@ -5,16 +5,20 @@ class Piece:
 
         self.piece_type = piece_type # Single character e.g. "p" for Pawn
         self.piece_image = None
-        self.starting_position = self.coords
 
     def move(self, new_x, new_y):
         """Move the piece to a new location"""
         self.coords = (new_x, new_y)
-        self.moved = True
             
-    def has_moved(self):
+    def has_moved(self, board):
         """Returns True if the piece has moved at least once"""
-        return self.starting_position != self.coords
+        history = board.history
+
+        for move in history:
+            if self == move[2]:
+                return True
+
+        return False
 
 class Pawn(Piece):
     def get_moves(self, board):
@@ -29,7 +33,7 @@ class Pawn(Piece):
                 moves.append((x, y + direction))
 
         # Double step forward
-        if not self.has_moved() and 0 <= y + 2 * direction < 8:
+        if not self.has_moved(board) and 0 <= y + 2 * direction < 8:
             if not board.get_piece_at(x, y + direction) and not board.get_piece_at(x, y + 2 * direction):
                 moves.append((x, y + 2 * direction))
 
@@ -161,7 +165,7 @@ class King(Piece):
                 moves.append((nx, ny))
         
         # Castling
-        if not self.has_moved():  # King must not have moved before
+        if not self.has_moved(board):  # King must not have moved before
             moves += self.get_castling_moves(board)
         
         return moves
@@ -176,7 +180,7 @@ class King(Piece):
 
         for rook_x, rook_y in rooks:
             rook = board.get_piece_at(rook_x, rook_y)
-            if rook and isinstance(rook, Rook) and not rook.has_moved():
+            if rook and isinstance(rook, Rook) and not rook.has_moved(board):
                 if self.clear_path((x, y), (rook_x, rook_y), board):
                     if rook_x == 7:  # Kingside castling
                         castling_moves.append((x + 2, y))

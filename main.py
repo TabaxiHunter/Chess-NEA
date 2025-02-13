@@ -3,8 +3,6 @@ import threading
 
 from board import Board
 from engine import Engine
-
-from pieces import *
 from utils import clamp
 
 class Chess:
@@ -21,7 +19,7 @@ class Chess:
         self.current_turn = 1 # White starts
 
         self.board = Board()
-        self.engine = Engine(depth=2)
+        self.engine = Engine(depth=3)
 
         self.setup_ui()
 
@@ -128,6 +126,7 @@ class Chess:
                 self.canvas.create_rectangle(x1, y1, x2, y2, fill=colour, width=0, tag="highlight")
 
             self.canvas.tag_raise("piece") # So pieces are visible above the highlight
+            self.canvas.tag_raise(self.selected_piece.piece_image)
             
     def on_drag(self, event):
         """Drag the selected piece"""

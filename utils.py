@@ -4,7 +4,7 @@ def clamp(n, min, max):
         return min
     elif n > max: 
         return max
-    else: 
+    else:
         return n
     
 def fen_to_coords(fen):

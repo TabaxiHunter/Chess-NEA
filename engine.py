@@ -62,6 +62,4 @@ class Engine:
 
     def generate_move(self, board, colour):
         """Finds the best move for the AI"""
-        best_move = self.negamax(board, self.MAX_DEPTH, self.ALPHA, self.BETA, colour)
-
-        return best_move
+        return self.negamax(board, self.MAX_DEPTH, self.ALPHA, self.BETA, colour)

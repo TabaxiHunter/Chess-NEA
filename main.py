@@ -5,7 +5,7 @@ from board import Board
 from engine import Engine
 from utils import clamp
 
-class Chess:
+class Game:
     def __init__(self, root, square_size, board_size):
         self.square_size = square_size
         self.board_size = board_size
@@ -28,18 +28,32 @@ class Chess:
         self.canvas_height = self.square_size * self.board_size
 
         self.canvas = tk.Canvas(self.root, width=self.canvas_width, height=self.canvas_height)
-        self.canvas.pack(anchor="nw")
+        self.canvas.grid(row=0, column=0, rowspan=2)
+
+        """
+        self.timer = tk.Label(self.root, text="05:00", borderwidth=2, relief="solid")
+        self.timer.grid(row=0, column=1, sticky="n", pady=30)
+
+        self.move_list = tk.Listbox(self.root)
+        self.move_list.grid(row=1, column=1, sticky="n")
+        """
 
         self.undo_button = tk.Button(self.root, text="Undo Move", command=self.undo_move)
-        self.undo_button.pack()
+        self.undo_button.grid(row=0, column=1, sticky="n")
 
-        self.game_button = tk.Button(self.root, text="New Game", command=self.reset_game)
-        self.game_button.pack()
+        self.game_button = tk.Button(self.root, text="New Game", command=lambda: self.start_game(depth=1))
+        self.game_button.grid(row=1, column=1, sticky="n")
 
         self.update_graphics()
 
-    def reset_game(self):
+    def start_game(self, depth):
+        self.images = []
+        self.selected_piece = None
+        self.current_turn = 1 # White starts
+
         self.board = Board()
+        self.engine = Engine(depth=depth)
+
         self.update_graphics()
 
     def draw_board(self):
@@ -112,7 +126,7 @@ class Chess:
 
         if self.selected_piece:
             # Highlight all the possible moves a player can make
-            for (x, y) in self.selected_piece.get_moves(self.board):
+            for (x, y) in self.selected_piece.get_legal_moves(self.board):
                 x1 = x * self.square_size
                 y1 = y * self.square_size
                 x2 = (x + 1) * self.square_size
@@ -143,10 +157,13 @@ class Chess:
             new_y = event.y // self.square_size
             new_coords = (new_x, new_y)
 
-            if new_coords in self.selected_piece.get_moves(self.board):
+            if new_coords in self.selected_piece.get_legal_moves(self.board):
                 # The player has selected a valid move, so play it
                 self.board.make_move(self.selected_piece.coords, new_coords)
                 self.update_graphics()
+
+                # Check for checkmate or stalemate
+                self.is_game_over()
 
                 self.selected_piece = None
                 self.current_turn = -1 # Black
@@ -160,15 +177,27 @@ class Chess:
                 self.update_graphics()
 
     def ai_done(self):
+        # Check for checkmate or stalemate
+        self.is_game_over()
+
         self.current_turn = 1 # Switch back to player's turn
         self.update_graphics()
 
     def ai_turn(self):
         best_move = self.engine.generate_move(self.board, -1)
-        _, start, end = best_move
 
-        self.board.make_move(start, end)
-        self.root.after(0, self.ai_done)
+        if best_move:
+            _, start, end = best_move
+
+            self.board.make_move(start, end)
+            self.root.after(0, self.ai_done)
+
+    def is_game_over(self):
+        # TODO: Make a pop up on screen to let the player know
+        if self.board.is_checkmate(-self.current_turn):
+            print("Checkmate!", self.current_turn, "wins")
+        elif self.board.is_stalemate(-self.current_turn):
+            print("Stalemate! It's a draw.")
 
     def update_graphics(self):
         """Updates the graphics based on the board state"""
@@ -186,6 +215,6 @@ class Chess:
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = Chess(root, square_size=60, board_size=8)
+    app = Game(root, square_size=60, board_size=8)
 
     root.mainloop()

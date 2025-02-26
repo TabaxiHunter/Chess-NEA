@@ -19,6 +19,33 @@ class Piece:
                 return True
 
         return False
+    
+    def get_legal_moves(self, board):
+        """Returns only moves that do not leave the king in check."""
+        legal_moves = []
+        for move in self.get_moves(board):  # Get all possible moves
+            if not self.causes_check(board, move):
+                legal_moves.append(move)
+        return legal_moves
+    
+    def causes_check(self, board, move):
+        """Simulates a move and checks if it results in the player being in check."""
+        original_position = self.coords
+        captured_piece = board.get_piece_at(move[0], move[1])
+
+        # Simulate move
+        self.move(move[0], move[1])
+        if captured_piece:
+            board.pieces.remove(captured_piece)
+
+        in_check = board.in_check(self.colour)
+
+        # Undo move
+        self.move(original_position[0], original_position[1])
+        if captured_piece:
+            board.pieces.append(captured_piece)
+
+        return in_check
 
 class Pawn(Piece):
     def get_moves(self, board):
@@ -159,13 +186,13 @@ class King(Piece):
             if 0 <= nx < 8 and 0 <= ny < 8:
                 blocking_piece = board.get_piece_at(nx, ny)
                 if blocking_piece:
-                    if blocking_piece.colour != self.colour:
+                    if blocking_piece.colour != self.colour :
                         moves.append((nx, ny))
                     continue
                 moves.append((nx, ny))
         
         # Castling
-        if not self.has_moved(board):  # King must not have moved before
+        if not self.has_moved(board) and not board.in_check(self.colour): # King must not have moved before
             moves += self.get_castling_moves(board)
         
         return moves
@@ -184,7 +211,7 @@ class King(Piece):
                 if self.clear_path((x, y), (rook_x, rook_y), board):
                     if rook_x == 7:  # Kingside castling
                         castling_moves.append((x + 2, y))
-                    else:  # Queenside castling
+                    else: # Queenside castling
                         castling_moves.append((x - 2, y))
 
         return castling_moves

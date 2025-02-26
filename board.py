@@ -61,6 +61,92 @@ class Board:
             # Update the move history to track promotion
             self.history[-1] = (start, end, piece, captured_piece, promoted_piece)
 
+    def in_check(self, colour):
+        """Returns True if the king of the given colour is in check."""
+        king = None
+        for piece in self.pieces:
+            if isinstance(piece, King) and piece.colour == colour:
+                king = piece
+                break
+
+        if not king:
+            return False # Shouldn't happen, but just in case
+
+        # Check if any opponent's piece can attack the king
+        for piece in self.pieces:
+            if piece.colour != colour:
+                # Avoid recursion by not asking the King for its own moves
+                if isinstance(piece, King):
+                    # Manually check if the opponent king is adjacent (Kings cannot attack each other directly)
+                    x, y = king.coords
+                    px, py = piece.coords
+                    if abs(x - px) <= 1 and abs(y - py) <= 1:
+                        return True
+                    continue  # Skip further processing for opponent's King
+
+                if king.coords in piece.get_moves(self):
+                    return True # King is in check
+
+        return False
+    
+    def is_checkmate(self, colour):
+        """Returns True if the given colour is in checkmate."""
+        if not self.in_check(colour):
+            return False  # Not checkmate if king is not in check
+
+        # Check if any move can get the player out of check
+        for piece in self.pieces:
+            if piece.colour == colour:
+                for move in piece.get_moves(self):
+                    # Simulate move
+                    original_position = piece.coords
+                    captured_piece = self.get_piece_at(move[0], move[1])
+
+                    piece.move(move[0], move[1])
+                    if captured_piece:
+                        self.pieces.remove(captured_piece)
+
+                    in_check = self.in_check(colour)
+
+                    # Undo the move
+                    piece.move(original_position[0], original_position[1])
+                    if captured_piece:
+                        self.pieces.append(captured_piece)
+
+                    if not in_check:
+                        return False  # The player can escape check
+
+        return True  # No escape moves → Checkmate
+    
+    def is_stalemate(self, colour):
+        """Returns True if the game is in stalemate (no legal moves but not in check)."""
+        if self.in_check(colour):
+            return False # It's check, not stalemate
+
+        # Check if there are any legal moves left
+        for piece in self.pieces:
+            if piece.colour == colour:
+                for move in piece.get_moves(self):
+                    # Simulate move
+                    original_position = piece.coords
+                    captured_piece = self.get_piece_at(move[0], move[1])
+
+                    piece.move(move[0], move[1])
+                    if captured_piece:
+                        self.pieces.remove(captured_piece)
+
+                    in_check = self.in_check(colour)
+
+                    # Undo the move
+                    piece.move(original_position[0], original_position[1])
+                    if captured_piece:
+                        self.pieces.append(captured_piece)
+
+                    if not in_check:
+                        return False  # The player has at least one move
+
+        return True # No legal moves left → Stalemate
+
     def make_move(self, start, end):
         """Updates the board with the move and stores it in history"""
         piece = self.get_piece_at(start[0], start[1])

@@ -51,14 +51,19 @@ class Engine:
         return best_score
 
     def get_all_moves(self, board, colour):
-        """Generates all legal moves for the given colour using each piece's get_moves()"""
-        all_moves = []
+        """Orders moves so captures and checks are considered first"""
+        moves = []
         for piece in board.pieces:
             if piece.colour == colour:
-                for move in piece.get_moves(board):
-                    all_moves.append((piece, piece.coords, move))
+                for move in piece.get_legal_moves(board):
+                    # Prioritise captures
+                    captured = board.get_piece_at(move[0], move[1])
+                    move_score = captured.get_value() if captured else 0
+                    moves.append((move_score, piece, piece.coords, move))
 
-        return all_moves
+        # Sort moves so high-priority ones (captures) are searched first
+        moves.sort(reverse=True, key=lambda x: x[0])
+        return [(piece, start, end) for _, piece, start, end in moves]
 
     def generate_move(self, board, colour):
         """Finds the best move for the AI"""

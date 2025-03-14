@@ -27,8 +27,7 @@ class Engine:
         legal_moves = self.get_all_moves(board, colour)
 
         for move in legal_moves:
-            _, start, end = move
-
+            start, end = move
             board.make_move(start, end)
 
             # Recursively call Negamax with the opposite color
@@ -56,14 +55,9 @@ class Engine:
         for piece in board.pieces:
             if piece.colour == colour:
                 for move in piece.get_legal_moves(board):
-                    # Prioritise captures
-                    captured = board.get_piece_at(move[0], move[1])
-                    move_score = captured.get_value() if captured else 0
-                    moves.append((move_score, piece, piece.coords, move))
+                    moves.append((piece.coords, move))
 
-        # Sort moves so high-priority ones (captures) are searched first
-        moves.sort(reverse=True, key=lambda x: x[0])
-        return [(piece, start, end) for _, piece, start, end in moves]
+        return moves
 
     def generate_move(self, board, colour):
         """Finds the best move for the AI"""

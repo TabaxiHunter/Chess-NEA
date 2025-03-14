@@ -3,7 +3,8 @@ import threading
 
 from board import Board
 from engine import Engine
-from utils import clamp
+from utils import clamp, move_to_pgn, format_seconds
+from tkinter import messagebox
 
 class Game:
     def __init__(self, root, square_size, board_size):
@@ -13,15 +14,12 @@ class Game:
         self.root = root
         self.root.geometry("854x480")
         self.root.minsize(854, 480)
-
-        self.images = []
-        self.selected_piece = None
-        self.current_turn = 1 # White starts
-
-        self.board = Board()
-        self.engine = Engine(depth=3)
+        self.root.title("Chess AI")
+        self.root.resizable(False, False) # Window size cannot be changed
+        self.jobs = []
 
         self.setup_ui()
+        self.start_game(3, 300)
 
     def setup_ui(self):
         self.canvas_width = self.square_size * self.board_size
@@ -30,23 +28,14 @@ class Game:
         self.canvas = tk.Canvas(self.root, width=self.canvas_width, height=self.canvas_height)
         self.canvas.grid(row=0, column=0, rowspan=2)
 
-        """
-        self.timer = tk.Label(self.root, text="05:00", borderwidth=2, relief="solid")
-        self.timer.grid(row=0, column=1, sticky="n", pady=30)
+        self.timer = tk.Label(self.root, text="", borderwidth=2, relief="solid", height=2, width=8, font=("Arial", 25), bg="white")
+        self.timer.grid(row=0, column=1, sticky="n", pady=2)
 
-        self.move_list = tk.Listbox(self.root)
+        self.move_list = tk.Listbox(self.root, height=16, width=14, relief="solid", borderwidth=2, font=("Arial", 14))
+        self.move_list.bindtags((self.move_list, self.root, tk.ALL)) # So that moves cannot be selected
         self.move_list.grid(row=1, column=1, sticky="n")
-        """
 
-        self.undo_button = tk.Button(self.root, text="Undo Move", command=self.undo_move)
-        self.undo_button.grid(row=0, column=1, sticky="n")
-
-        self.game_button = tk.Button(self.root, text="New Game", command=lambda: self.start_game(depth=1))
-        self.game_button.grid(row=1, column=1, sticky="n")
-
-        self.update_graphics()
-
-    def start_game(self, depth):
+    def start_game(self, depth, time):
         self.images = []
         self.selected_piece = None
         self.current_turn = 1 # White starts
@@ -54,7 +43,30 @@ class Game:
         self.board = Board()
         self.engine = Engine(depth=depth)
 
+        self.start_time = time
+        self.time_left = self.start_time
+
+        for job in self.jobs:
+            self.root.after_cancel(job)
+
+        self.move_list.delete(0, tk.END)
+
+        # Start timer
+        self.timer.configure(text=format_seconds(self.time_left))
+        self.jobs.append(self.root.after(1000, self.start_timer))
+
         self.update_graphics()
+
+    def start_timer(self):
+        # Timer only counts down during the player's turn
+        if self.current_turn == 1:
+            self.time_left -= 1
+            self.timer.configure(text=format_seconds(self.time_left))
+
+        if self.time_left > 0:
+            self.jobs.append(self.root.after(1000, self.start_timer))
+        else:
+            print("Game over") # TODO
 
     def draw_board(self):
         """Draw the chessboard with alternating colours"""
@@ -159,11 +171,12 @@ class Game:
 
             if new_coords in self.selected_piece.get_legal_moves(self.board):
                 # The player has selected a valid move, so play it
-                self.board.make_move(self.selected_piece.coords, new_coords)
-                self.update_graphics()
+                move = self.board.make_move(self.selected_piece.coords, new_coords)
+                self.move_list.insert(tk.END, f"{self.move_list.index(tk.END)+1}. {move_to_pgn(move)}")
+                self.move_list.yview(tk.END)
 
-                # Check for checkmate or stalemate
-                self.is_game_over()
+                self.update_graphics()
+                self.is_game_over() # Check for checkmate or stalemate
 
                 self.selected_piece = None
                 self.current_turn = -1 # Black
@@ -187,17 +200,27 @@ class Game:
         best_move = self.engine.generate_move(self.board, -1)
 
         if best_move:
-            _, start, end = best_move
+            start, end = best_move
 
-            self.board.make_move(start, end)
+            move = self.board.make_move(start, end)
+            x = self.move_list.get(tk.END)
+            self.move_list.delete(tk.END)
+            self.move_list.insert(tk.END, f"{x} {move_to_pgn(move)}")
+            self.move_list.yview(tk.END)
+
             self.root.after(0, self.ai_done)
+        else:
+            print("No moves")
 
     def is_game_over(self):
         # TODO: Make a pop up on screen to let the player know
+        colour = "White" if self.current_turn == 1 else "Black"
+
         if self.board.is_checkmate(-self.current_turn):
-            print("Checkmate!", self.current_turn, "wins")
+            messagebox.showinfo(parent=self.root, title="Checkmate!", message=f"{colour} wins")
+
         elif self.board.is_stalemate(-self.current_turn):
-            print("Stalemate! It's a draw.")
+            messagebox.showinfo(parent=self.root, title="Stalemate!", message="It's a draw")
 
     def update_graphics(self):
         """Updates the graphics based on the board state"""
@@ -206,12 +229,6 @@ class Game:
 
         self.draw_board()
         self.draw_pieces()
-
-    def undo_move(self):
-        """Undoes the last move"""
-        self.board.unmake_move()
-        self.board.unmake_move()
-        self.update_graphics()
 
 if __name__ == "__main__":
     root = tk.Tk()

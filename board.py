@@ -1,5 +1,5 @@
 from pieces import Pawn, Knight, Bishop, Rook, Queen, King
-from utils import fen_to_coords
+from utils import fen_to_coords, move_to_pgn
 
 class Board:
     def __init__(self):
@@ -116,7 +116,7 @@ class Board:
                     if not in_check:
                         return False  # The player can escape check
 
-        return True  # No escape moves → Checkmate
+        return True  # No escape moves = Checkmate
     
     def is_stalemate(self, colour):
         """Returns True if the game is in stalemate (no legal moves but not in check)."""
@@ -145,7 +145,7 @@ class Board:
                     if not in_check:
                         return False  # The player has at least one move
 
-        return True # No legal moves left → Stalemate
+        return True # No legal moves left = Stalemate
 
     def make_move(self, start, end):
         """Updates the board with the move and stores it in history"""
@@ -158,7 +158,8 @@ class Board:
             if captured_piece:
                 self.pieces.remove(captured_piece)
 
-            self.history.append((start, end, piece, captured_piece, None))
+            move = (start, end, piece, captured_piece, None)
+            self.history.append(move)
             piece.move(end[0], end[1])
 
             # Attempt to promote the piece if it's a pawn
@@ -168,6 +169,8 @@ class Board:
             # Handle castling
             if isinstance(piece, King) and abs(start[0] - end[0]) == 2:
                 self.perform_castling(piece, start, end)
+
+            return move
 
     def perform_castling(self, king, start, end):
         """Moves the rook accordingly when castling."""

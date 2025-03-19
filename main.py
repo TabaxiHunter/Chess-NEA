@@ -18,8 +18,9 @@ class Game:
         self.root.resizable(False, False) # Window size cannot be changed
         self.jobs = []
 
+        self.load_images()
         self.setup_ui()
-        self.start_game(3, 300)
+        self.start_game(depth=3, time=300)
 
     def setup_ui(self):
         self.canvas_width = self.square_size * self.board_size
@@ -27,6 +28,11 @@ class Game:
 
         self.canvas = tk.Canvas(self.root, width=self.canvas_width, height=self.canvas_height)
         self.canvas.grid(row=0, column=0, rowspan=2)
+
+        # Bind events so player can move pieces
+        self.canvas.bind("<Button-1>", self.on_click)
+        self.canvas.bind("<B1-Motion>", self.on_drag)
+        self.canvas.bind("<ButtonRelease-1>", self.on_drop)
 
         self.timer = tk.Label(self.root, text="", borderwidth=2, relief="solid", height=2, width=8, font=("Arial", 25), bg="white")
         self.timer.grid(row=0, column=1, sticky="n", pady=2)
@@ -66,7 +72,8 @@ class Game:
         if self.time_left > 0:
             self.jobs.append(self.root.after(1000, self.start_timer))
         else:
-            print("Game over") # TODO
+            self.end_game()
+            messagebox.showinfo(parent=self.root, title="Game over!", message="You ran out of time")
 
     def draw_board(self):
         """Draw the chessboard with alternating colours"""
@@ -83,14 +90,38 @@ class Game:
                 y2 = (row + 1) * self.square_size
 
                 self.canvas.create_rectangle(x1, y1, x2, y2, fill=colour, width=0)
-        
-        # Bind events so player can move pieces
-        self.canvas.bind("<Button-1>", self.on_click)
-        self.canvas.bind("<B1-Motion>", self.on_drag)
-        self.canvas.bind("<ButtonRelease-1>", self.on_drop)
 
-    def draw_pieces(self):
-        white_pieces = {
+        # Show the AI's previous move move
+        history = self.board.history
+
+        if len(history) == 0:
+            return
+        
+        last_move = history[-1]
+        piece = last_move[2]
+
+        if piece.colour == 1:
+            return
+
+        coords = last_move[0], last_move[1]
+
+        for coord in coords:
+            x, y = coord
+
+            if (x + y) % 2 == 0:
+                colour = "#CDD26A"
+            else:
+                colour = "#aba23a"
+
+            x1 = x * self.square_size
+            y1 = y * self.square_size
+            x2 = (x + 1) * self.square_size
+            y2 = (y + 1) * self.square_size
+
+            self.canvas.create_rectangle(x1, y1, x2, y2, fill=colour, width=0)
+
+    def load_images(self):
+        self.white_pieces = {
             "r": tk.PhotoImage(file="ChessPieces/wR.png"),
             "n": tk.PhotoImage(file="ChessPieces/wN.png"),
             "b": tk.PhotoImage(file="ChessPieces/wB.png"),
@@ -99,7 +130,7 @@ class Game:
             "p": tk.PhotoImage(file="ChessPieces/wP.png")
         }
 
-        black_pieces = {
+        self.black_pieces = {
             "r": tk.PhotoImage(file="ChessPieces/bR.png"),
             "n": tk.PhotoImage(file="ChessPieces/bN.png"),
             "b": tk.PhotoImage(file="ChessPieces/bB.png"),
@@ -108,11 +139,12 @@ class Game:
             "p": tk.PhotoImage(file="ChessPieces/bP.png")
         }
 
+    def draw_pieces(self):
         for piece in self.board.pieces:
             if piece.colour == 1:
-                image = white_pieces[piece.piece_type]
+                image = self.white_pieces[piece.piece_type]
             else:
-                image = black_pieces[piece.piece_type]
+                image = self.black_pieces[piece.piece_type]
 
             piece.piece_image = self.canvas.create_image(
                 piece.coords[0] * self.square_size + self.square_size // 2,
@@ -172,6 +204,7 @@ class Game:
             if new_coords in self.selected_piece.get_legal_moves(self.board):
                 # The player has selected a valid move, so play it
                 move = self.board.make_move(self.selected_piece.coords, new_coords)
+
                 self.move_list.insert(tk.END, f"{self.move_list.index(tk.END)+1}. {move_to_pgn(move)}")
                 self.move_list.yview(tk.END)
 
@@ -203,23 +236,34 @@ class Game:
             start, end = best_move
 
             move = self.board.make_move(start, end)
-            x = self.move_list.get(tk.END)
+            last_move = self.move_list.get(tk.END)
+
             self.move_list.delete(tk.END)
-            self.move_list.insert(tk.END, f"{x} {move_to_pgn(move)}")
+            self.move_list.insert(tk.END, f"{last_move} {move_to_pgn(move)}")
             self.move_list.yview(tk.END)
 
             self.root.after(0, self.ai_done)
-        else:
-            print("No moves")
+
+    def end_game(self):
+        self.update_graphics()
+
+        # Rebind canvas events so player can't interact with board anymore
+        self.canvas.bind("<Button-1>", "")
+        self.canvas.bind("<B1-Motion>", "")
+        self.canvas.bind("<ButtonRelease-1>", "")
+
+        for job in self.jobs:
+            self.root.after_cancel(job)
 
     def is_game_over(self):
-        # TODO: Make a pop up on screen to let the player know
         colour = "White" if self.current_turn == 1 else "Black"
 
         if self.board.is_checkmate(-self.current_turn):
+            self.end_game()
             messagebox.showinfo(parent=self.root, title="Checkmate!", message=f"{colour} wins")
 
         elif self.board.is_stalemate(-self.current_turn):
+            self.end_game()
             messagebox.showinfo(parent=self.root, title="Stalemate!", message="It's a draw")
 
     def update_graphics(self):

@@ -55,6 +55,7 @@ class Board:
         if white_promote or black_promote:
             # Remove the Pawn and replace with a Queen at the same position
             self.pieces.remove(piece)
+
             piece_type = "Q" if piece.colour == 1 else "q"
             promoted_piece = self.create_piece(piece_type, piece.coords)
 
@@ -62,10 +63,10 @@ class Board:
             self.history[-1] = (start, end, piece, captured_piece, promoted_piece)
 
     def in_check(self, colour):
-        """Returns True if the king of the given colour is in check."""
+        """Returns True if the king of the given colour is in check"""
         king = None
         for piece in self.pieces:
-            if isinstance(piece, King) and piece.colour == colour:
+            if piece.piece_type == "k" and piece.colour == colour:
                 king = piece
                 break
 
@@ -76,74 +77,66 @@ class Board:
         for piece in self.pieces:
             if piece.colour != colour:
                 # Avoid recursion by not asking the King for its own moves
-                if isinstance(piece, King):
-                    # Manually check if the opponent king is adjacent (Kings cannot attack each other directly)
+                if piece.piece_type == "k":
+                    # Manually check if the opponent king is adjacent
+                    # Kings cannot attack each other directly
                     x, y = king.coords
                     px, py = piece.coords
+
                     if abs(x - px) <= 1 and abs(y - py) <= 1:
                         return True
-                    continue  # Skip further processing for opponent's King
+
+                    continue # Skip further processing for opponent's King
 
                 if king.coords in piece.get_moves(self):
                     return True # King is in check
 
         return False
+
+    def causes_check(self, move, colour):
+        start, end = move
+        self.make_move(start, end)
+
+        check = self.in_check(colour)
+        self.unmake_move()
+
+        return check
     
     def is_checkmate(self, colour):
-        """Returns True if the given colour is in checkmate."""
+        """Returns True if the given colour is in checkmate"""
         if not self.in_check(colour):
-            return False  # Not checkmate if king is not in check
+            return False
 
         # Check if any move can get the player out of check
         for piece in self.pieces:
             if piece.colour == colour:
-                for move in piece.get_moves(self):
-                    # Simulate move
-                    original_position = piece.coords
-                    captured_piece = self.get_piece_at(move[0], move[1])
-
-                    piece.move(move[0], move[1])
-                    if captured_piece:
-                        self.pieces.remove(captured_piece)
-
+                for end in piece.get_moves(self):
+                    self.make_move(piece.coords, end)
                     in_check = self.in_check(colour)
 
-                    # Undo the move
-                    piece.move(original_position[0], original_position[1])
-                    if captured_piece:
-                        self.pieces.append(captured_piece)
+                    self.unmake_move()
 
                     if not in_check:
-                        return False  # The player can escape check
+                        return False # The player can escape check
 
-        return True  # No escape moves = Checkmate
+        return True # No escape moves = Checkmate
     
     def is_stalemate(self, colour):
-        """Returns True if the game is in stalemate (no legal moves but not in check)."""
+        """Returns True if the game is in stalemate (no legal moves but not in check)"""
         if self.in_check(colour):
             return False # It's check, not stalemate
 
         # Check if there are any legal moves left
         for piece in self.pieces:
             if piece.colour == colour:
-                for move in piece.get_moves(self):
-                    # Simulate move
-                    original_position = piece.coords
-                    captured_piece = self.get_piece_at(move[0], move[1])
-
-                    piece.move(move[0], move[1])
-                    if captured_piece:
-                        self.pieces.remove(captured_piece)
-
+                for end in piece.get_moves(self):
+                    self.make_move(piece.coords, end)
                     in_check = self.in_check(colour)
 
-                    # Undo the move
-                    piece.move(original_position[0], original_position[1])
-                    if captured_piece:
-                        self.pieces.append(captured_piece)
+                    self.unmake_move()
 
                     if not in_check:
-                        return False  # The player has at least one move
+                        return False # The player has at least one move
 
         return True # No legal moves left = Stalemate
 
@@ -163,43 +156,30 @@ class Board:
             piece.move(end[0], end[1])
 
             # Attempt to promote the piece if it's a pawn
-            if isinstance(piece, Pawn):
+            if piece.piece_type == "p":
                 self.promote(piece, start, end, captured_piece)
 
             # Handle castling
-            if isinstance(piece, King) and abs(start[0] - end[0]) == 2:
-                self.perform_castling(piece, start, end)
+            if piece.piece_type == "k" and abs(start[0] - end[0]) == 2:
+                self.castle(start, end)
 
             return move
 
-    def perform_castling(self, king, start, end):
-        """Moves the rook accordingly when castling."""
+    def castle(self, start, end):
+        """Moves the rook when castling"""
+        x = end[0]
         y = start[1]
 
-        if end[0] == 6:  # Kingside
+        if x == 6: # Kingside
             rook = self.get_piece_at(7, y)
             if rook:
                 rook.move(5, y)
 
-        elif end[0] == 2:  # Queenside
+        elif x == 2: # Queenside
             rook = self.get_piece_at(0, y)
             if rook:
                 rook.move(3, y)
-
-    def undo_castling(self, king, start, end):
-        """Moves the rook back to its original position when undoing castling."""
-        y = start[1]
-
-        if end[0] == 6:  # Kingside castling
-            rook = self.get_piece_at(5, y)
-            if rook:
-                rook.move(7, y)  # Move rook back to original position
-
-        elif end[0] == 2:  # Queenside castling
-            rook = self.get_piece_at(3, y)
-            if rook:
-                rook.move(0, y)  # Move rook back to original position
-
+        
     def unmake_move(self):
         """Reverts the last move"""
         if not self.history:
@@ -210,13 +190,21 @@ class Board:
         # If the move was a promotion, remove the queen and restore the pawn
         if promoted_piece:
             old_pawn = self.get_piece_at(end[0], end[1])
+
             if old_pawn:
                 self.pieces.remove(old_pawn)
+
             self.pieces.append(piece)
 
         # Undo castling
-        if isinstance(piece, King) and abs(start[0] - end[0]) == 2:
-            self.undo_castling(piece, start, end)
+        if piece.piece_type == "k" and abs(start[0] - end[0]) == 2:
+            y = start[1]
+
+            if end[0] == 6: # Kingside castling
+                self.get_piece_at(5, y).move(7, y) 
+
+            elif end[0] == 2: # Queenside castling
+                self.get_piece_at(3, y).move(0, y)
 
         # Revert the piece position
         piece.move(start[0], start[1])
@@ -225,5 +213,3 @@ class Board:
         if captured_piece:
             self.pieces.append(captured_piece)
             captured_piece.move(end[0], end[1])
-
-        

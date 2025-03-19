@@ -21,38 +21,21 @@ class Piece:
         return False
     
     def get_legal_moves(self, board):
-        """Returns only moves that do not leave the king in check."""
+        """Returns only moves that do not leave the king in check"""
         legal_moves = []
-        for move in self.get_moves(board):  # Get all possible moves
-            if not self.causes_check(board, move):
-                legal_moves.append(move)
+        for end in self.get_moves(board):
+            if not board.causes_check((self.coords, end), self.colour):
+                legal_moves.append(end)
+
         return legal_moves
-    
-    def causes_check(self, board, move):
-        """Simulates a move and checks if it results in the player being in check."""
-        original_position = self.coords
-        captured_piece = board.get_piece_at(move[0], move[1])
-
-        # Simulate move
-        self.move(move[0], move[1])
-        if captured_piece:
-            board.pieces.remove(captured_piece)
-
-        in_check = board.in_check(self.colour)
-
-        # Undo move
-        self.move(original_position[0], original_position[1])
-        if captured_piece:
-            board.pieces.append(captured_piece)
-
-        return in_check
 
 class Pawn(Piece):
     def get_moves(self, board):
         """Generate legal moves for a pawn"""
         x, y = self.coords
-        moves = []
         direction = -self.colour # White moves up, black moves down
+
+        moves = []
         
         # Single step forward
         if 0 <= y + direction < 8:
@@ -83,7 +66,7 @@ class Pawn(Piece):
         return moves
     
     def get_value(self):
-        return 1
+        return 100
 
 class Knight(Piece):
     def get_moves(self, board):
@@ -106,7 +89,7 @@ class Knight(Piece):
         return moves
     
     def get_value(self):
-        return 3
+        return 300
 
 class Bishop(Piece):
     def get_moves(self, board):
@@ -131,7 +114,7 @@ class Bishop(Piece):
         return moves
     
     def get_value(self):
-        return 3
+        return 300
 
 class Rook(Piece):
     def get_moves(self, board):
@@ -157,7 +140,7 @@ class Rook(Piece):
         return moves
     
     def get_value(self):
-        return 5
+        return 500
 
 class Queen(Piece):
     def get_moves(self, board):
@@ -171,7 +154,7 @@ class Queen(Piece):
         return rook.get_moves(board) + bishop.get_moves(board)
     
     def get_value(self):
-        return 9
+        return 900
 
 class King(Piece):
     def get_moves(self, board):
@@ -192,7 +175,7 @@ class King(Piece):
                 moves.append((nx, ny))
         
         # Castling
-        if not self.has_moved(board) and not board.in_check(self.colour): # King must not have moved before
+        if not self.has_moved(board) and not board.in_check(self.colour):
             moves += self.get_castling_moves(board)
         
         return moves
@@ -203,15 +186,15 @@ class King(Piece):
         castling_moves = []
 
         # Check Rook positions (Kingside and Queenside)
-        rooks = [(7, y), (0, y)]  # (Kingside rook, Queenside rook)
+        rooks = [(7, y), (0, y)]
 
         for rook_x, rook_y in rooks:
             rook = board.get_piece_at(rook_x, rook_y)
-            if rook and isinstance(rook, Rook) and not rook.has_moved(board):
+            if rook and rook.piece_type == "r" and not rook.has_moved(board):
                 if self.clear_path((x, y), (rook_x, rook_y), board):
-                    if rook_x == 7:  # Kingside castling
+                    if rook_x == 7: # Kingside
                         castling_moves.append((x + 2, y))
-                    else: # Queenside castling
+                    else: # Queenside
                         castling_moves.append((x - 2, y))
 
         return castling_moves
@@ -220,12 +203,14 @@ class King(Piece):
         """Returns True if there are no pieces between start and end"""
         x1, y1 = start
         x2, y2 = end
+        
         step = 1 if x1 < x2 else -1
 
         for x in range(x1 + step, x2, step):
             if board.get_piece_at(x, y1):
                 return False
+
         return True
     
     def get_value(self):
-        return 100 # The king is invaluable
+        return 10000000 # The king is invaluable

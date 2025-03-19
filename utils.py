@@ -33,7 +33,7 @@ def move_to_pgn(move):
     def coord_to_chess(coord):
         """Convert (row, col) to chess notation."""
         row, col = coord
-        return chr(col + ord('a')) + str(8 - row)
+        return chr(col + ord("a")) + str(8 - row)
 
     start_notation = coord_to_chess(start)
     end_notation = coord_to_chess(end)

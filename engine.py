@@ -18,10 +18,10 @@ class Engine:
 
     def evaluate_board(self, board, colour):
         if board.is_checkmate(colour):
-            return float("-inf")
+            return float("-inf") * colour
         
         if board.is_checkmate(-colour):
-            return float("inf")
+            return float("inf") * colour
 
         if board.is_stalemate(colour) or board.is_stalemate(-colour):
             return 0

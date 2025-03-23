@@ -18,16 +18,19 @@ class Game:
         self.root.resizable(False, False) # Window size cannot be changed
         self.jobs = []
 
+        self.difficulty = 2
+        self.time = 300
+
         self.load_images()
         self.setup_ui()
-        self.start_game(depth=3, time=300)
+        self.start_game()
 
     def setup_ui(self):
         self.canvas_width = self.square_size * self.board_size
         self.canvas_height = self.square_size * self.board_size
 
         self.canvas = tk.Canvas(self.root, width=self.canvas_width, height=self.canvas_height)
-        self.canvas.grid(row=0, column=0, rowspan=2)
+        self.canvas.place(x=0,y=0)
 
         # Bind events so player can move pieces
         self.canvas.bind("<Button-1>", self.on_click)
@@ -35,21 +38,60 @@ class Game:
         self.canvas.bind("<ButtonRelease-1>", self.on_drop)
 
         self.timer = tk.Label(self.root, text="", borderwidth=2, relief="solid", height=2, width=8, font=("Arial", 25), bg="white")
-        self.timer.grid(row=0, column=1, sticky="n", pady=2)
+        self.timer.place(x=490, y=2)
 
-        self.move_list = tk.Listbox(self.root, height=16, width=14, relief="solid", borderwidth=2, font=("Arial", 14))
+        self.move_list = tk.Listbox(self.root, height=15, width=14, relief="solid", borderwidth=2, font=("Arial", 14))
         self.move_list.bindtags((self.move_list, self.root, tk.ALL)) # So that moves cannot be selected
-        self.move_list.grid(row=1, column=1, sticky="n")
+        self.move_list.place(x=489, y=115)
 
-    def start_game(self, depth, time):
+        tk.Label(self.root, text="Move History", borderwidth=2, relief="solid", height=1, width=14, font=("Arial", 14), bg="grey").place(x=489, y=90)
+        tk.Label(self.root, text="Difficulty", borderwidth=2, relief="solid", height=1, width=14, font=("Arial", 14), bg="grey").place(x=670, y=2)
+
+        tk.Button(self.root, text="Beginner", borderwidth=2, relief="solid", height=1, width=13, font=("Arial", 14), bg="white",
+            command=lambda: self.update_difficulty(1)
+        ).place(x=674, y=32)
+
+        tk.Button(self.root, text="Intermediate", borderwidth=2, relief="solid", height=1, width=13, font=("Arial", 14), bg="white",
+            command=lambda: self.update_difficulty(2)
+        ).place(x=674, y=72)
+
+        tk.Button(self.root, text="Advanced", borderwidth=2, relief="solid", height=1, width=13, font=("Arial", 14), bg="white",
+            command=lambda: self.update_difficulty(3)
+        ).place(x=674, y=112)
+
+        tk.Label(self.root, text="Time Controls", borderwidth=2, relief="solid", height=1, width=14, font=("Arial", 14), bg="grey").place(x=670, y=152)
+
+        tk.Button(self.root, text="Bullet", borderwidth=2, relief="solid", height=1, width=13, font=("Arial", 14), bg="white",
+            command=lambda: self.update_time(60)
+        ).place(x=674, y=182)
+
+        tk.Button(self.root, text="Blitz", borderwidth=2, relief="solid", height=1, width=13, font=("Arial", 14), bg="white",
+            command=lambda: self.update_time(5*60)
+        ).place(x=674, y=222)
+
+        tk.Button(self.root, text="Classical", borderwidth=2, relief="solid", height=1, width=13, font=("Arial", 14), bg="white",
+            command=lambda: self.update_time(60*60)
+        ).place(x=674, y=262)
+
+        tk.Button(self.root, text="Start Game", borderwidth=2, relief="solid", height=2, width=13, font=("Arial", 14), bg="grey",
+            command=lambda: self.start_game()
+        ).place(x=674, y=352)
+
+    def update_difficulty(self, difficulty):
+        self.difficulty = difficulty
+
+    def update_time(self, time):
+        self.time = time
+
+    def start_game(self):
         self.images = []
         self.selected_piece = None
         self.current_turn = 1 # White starts
 
         self.board = Board()
-        self.engine = Engine(depth=depth)
+        self.engine = Engine(depth=self.difficulty)
 
-        self.start_time = time
+        self.start_time = self.time
         self.time_left = self.start_time
 
         for job in self.jobs:

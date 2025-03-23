@@ -23,6 +23,7 @@ class Piece:
     def get_legal_moves(self, board):
         """Returns only moves that do not leave the king in check"""
         legal_moves = []
+
         for end in self.get_moves(board):
             if not board.causes_check((self.coords, end), self.colour):
                 legal_moves.append(end)
@@ -62,6 +63,22 @@ class Pawn(Piece):
             
             if blocking_piece and blocking_piece.colour != self.colour:
                 moves.append(target_pos)
+
+        # En Passant
+        if board.history:
+            for piece in board.pieces:
+                if piece.colour == self.colour:
+                    continue
+
+                last_move = board.history[-1]
+                start, end, other_piece, _, _ = last_move
+
+                y_distance = abs(start[1] - end[1])
+                x_distance = abs(self.coords[0] - other_piece.coords[0])
+
+                if y_distance == 2 and x_distance == 1 and other_piece.piece_type == "p":
+                    if self.coords[1] == other_piece.coords[1]:
+                        moves.append((other_piece.coords[0], other_piece.coords[1] + direction))
 
         return moves
     

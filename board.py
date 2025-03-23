@@ -7,8 +7,8 @@ class Board:
         self.history = [] # Stack to store move history
 
         # FEN notation for the starting position of chess
-        self.setup_pieces("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR")
-    
+        self.setup_pieces("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR")   
+         
     def create_piece(self, piece_character, coords):
         piece_types = {
             "r": Rook,
@@ -111,12 +111,10 @@ class Board:
         for piece in self.pieces:
             if piece.colour == colour:
                 for end in piece.get_moves(self):
-                    self.make_move(piece.coords, end)
-                    in_check = self.in_check(colour)
+                    move = (piece.coords, end)
+                    check = self.causes_check(move, colour)
 
-                    self.unmake_move()
-
-                    if not in_check:
+                    if not check:
                         return False # The player can escape check
 
         return True # No escape moves = Checkmate
@@ -130,12 +128,10 @@ class Board:
         for piece in self.pieces:
             if piece.colour == colour:
                 for end in piece.get_moves(self):
-                    self.make_move(piece.coords, end)
-                    in_check = self.in_check(colour)
+                    move = (piece.coords, end)
+                    check = self.causes_check(move, colour)
 
-                    self.unmake_move()
-
-                    if not in_check:
+                    if not check:
                         return False # The player has at least one move
 
         return True # No legal moves left = Stalemate
